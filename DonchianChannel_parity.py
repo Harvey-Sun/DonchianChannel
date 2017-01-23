@@ -12,20 +12,16 @@ INIT_CAP = 100000000
 START_DATE = '20130101'
 END_DATE = '20161231'
 Fee_Rate = 0.001
+program_path = 'C:/cStrategy/'
 
 
 def initial(sdk):
     # 准备数据
     sdk.prepareData(['LZ_GPA_QUOTE_THIGH', 'LZ_GPA_QUOTE_TLOW',
                      'LZ_GPA_INDEX_CSI500MEMBER', 'LZ_GPA_SLCIND_STOP_FLAG'])
-    # 下面获取close数据是为了判断某些股票当天是否已退市
-    close = pd.read_csv('C:\cStrategy\Factor\LZ_GPA_QUOTE_TCLOSE.csv', index_col=0)
-    close.index = [str(i) for i in close.index]
-    sdk.setGlobal('close', close)
 
 
 def init_per_day(sdk):
-    close = sdk.getGlobal('close')
     today = sdk.getNowDate()
     # 获取当天中证500成分股
     in_zz500 = pd.Series(sdk.getFieldData('LZ_GPA_INDEX_CSI500MEMBER')[-1]) == 1
@@ -40,11 +36,10 @@ def init_per_day(sdk):
     # 以下代码获取当天未停牌未退市的股票，即可交易股票
     # not_stop = pd.isnull(sdk.getFieldData('LZ_GPA_SLCIND_STOP_FLAG')[-1])  # 当日没有停牌的股票
     not_stop = pd.isnull(sdk.getFieldData('LZ_GPA_SLCIND_STOP_FLAG')[-11:]).all(axis=0)  # 当日和前10日均没有停牌的股票
-    on_list = list(pd.notnull(close.ix[today]))  # 存在于市场上的股票,去除退市股票
-    zz500_available = list(pd.Series(stock_list)[np.logical_and(np.logical_and(in_zz500, not_stop), on_list)])
+    zz500_available = list(pd.Series(stock_list)[np.logical_and(in_zz500, not_stop)])
     sdk.setGlobal('zz500_available', zz500_available)
     # 以下代码获取当天被移出中证500的有仓位的股票中可交易的股票
-    out_zz500_available = list(set(pd.Series(stock_list)[np.logical_and(not_stop, on_list)]).intersection(set(out_zz500_stock)))
+    out_zz500_available = list(set(pd.Series(stock_list)[not_stop]).intersection(set(out_zz500_stock)))
     sdk.setGlobal('out_zz500_available', out_zz500_available)
     # 订阅所有可交易的股票
     stock_available = list(set(zz500_available + out_zz500_available))
@@ -57,6 +52,8 @@ def init_per_day(sdk):
     # 记录
     sdk.sdklog(today, '========================================日期')
     sdk.sdklog(len(sdk.getPositions()), '持有股票数量')
+    sdk.sdklog(len(stock_available), '订阅股票数量')
+    # 全局变量
     sdk.setGlobal('up_line', up_line)
     sdk.setGlobal('down_line', down_line)
     # 建立一个列表，来记录当天有过交易的股票
@@ -153,7 +150,7 @@ config = {
     'feeRate': Fee_Rate,
     'strategyName': Strategy_Name,
     'logfile': '%s.log' % Strategy_Name,
-    'rootpath': 'C:/cStrategy/',
+    'rootpath': program_path,
     'executeMode': 'M',
     'feeLimit': 5,
     'cycle': 1,
