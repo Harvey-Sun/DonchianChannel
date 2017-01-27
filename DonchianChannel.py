@@ -22,6 +22,7 @@ def initial(sdk):
 
 
 def init_per_day(sdk):
+	sdk.clearGlobal()
     today = sdk.getNowDate()
     sdk.sdklog(today, '========================================日期')
     # 获取当天中证500成分股
